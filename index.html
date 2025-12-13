@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grid Wars - React Faster. Win More.</title>
+    <meta
+      name="description"
+      content="A fast-paced multiplayer reaction game. Be the first to tap the red cell and score!"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Dashboard Screen -->
+    <div
+      id="dashboard"
+      class="screen min-h-screen flex flex-col items-center justify-center p-4 grid-pattern scanline"
+    >
+      <!-- Title -->
+      <div class="text-center mb-8 animate-float">
+        <h1 class="title">
+          <span class="neon-text-cyan">Grid</span>
+          <span class="neon-text-magenta"> Wars</span>
+        </h1>
+        <p class="subtitle">React Faster. Win More.</p>
+      </div>
+
+      <!-- Background effects -->
+      <div class="bg-effect bg-effect-1"></div>
+      <div class="bg-effect bg-effect-2"></div>
+
+      <!-- Mode: Select -->
+      <div id="mode-select" class="neon-card neon-card-cyan w-full max-w-md">
+        <div class="space-y-2 mb-6">
+          <label class="label">Enter Your Name</label>
+          <input
+            type="text"
+            id="player-name"
+            placeholder="PLAYER NAME"
+            maxlength="15"
+            class="input"
+          />
+        </div>
+
+        <div class="btn-grid">
+          <button id="btn-create" class="btn btn-cyan" disabled>
+            <svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            <span>Create Game</span>
+          </button>
+          <button id="btn-join" class="btn btn-magenta" disabled>
+            <svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span>Join Game</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mode: Create -->
+      <div
+        id="mode-create"
+        class="neon-card neon-card-cyan w-full max-w-md hidden"
+      >
+        <div class="text-center">
+          <div class="icon-circle icon-circle-cyan animate-pulse-neon">
+            <svg
+              class="icon-lg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="6" x2="10" y1="12" y2="12" />
+              <line x1="8" x2="8" y1="10" y2="14" />
+              <line x1="15" x2="15.01" y1="13" y2="13" />
+              <line x1="18" x2="18.01" y1="11" y2="11" />
+              <rect width="20" height="12" x="2" y="6" rx="2" />
+            </svg>
+          </div>
+          <h2 class="card-title neon-text-cyan">Create New Game</h2>
+          <p class="card-subtitle">
+            Playing as
+            <span id="create-player-name" class="text-cyan font-bold"></span>
+          </p>
+        </div>
+
+        <div class="btn-row mt-6">
+          <button id="btn-create-back" class="btn btn-outline flex-1">
+            Back
+          </button>
+          <button id="btn-start-game" class="btn btn-solid flex-1">
+            Start Game
+          </button>
+        </div>
+      </div>
+
+      <!-- Mode: Join -->
+      <div
+        id="mode-join"
+        class="neon-card neon-card-magenta w-full max-w-md hidden"
+      >
+        <div class="text-center">
+          <div class="icon-circle icon-circle-magenta animate-pulse-neon">
+            <svg
+              class="icon-lg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <h2 class="card-title neon-text-magenta">Join Existing Game</h2>
+          <p class="card-subtitle">
+            Playing as
+            <span id="join-player-name" class="text-magenta font-bold"></span>
+          </p>
+        </div>
+
+        <div class="space-y-2 mt-6">
+          <label class="label">Game Code</label>
+          <input
+            type="text"
+            id="game-code-input"
+            placeholder="ENTER CODE"
+            maxlength="6"
+            class="input input-code"
+          />
+        </div>
+
+        <div class="btn-row mt-6">
+          <button id="btn-join-back" class="btn btn-outline flex-1">
+            Back
+          </button>
+          <button
+            id="btn-join-game"
+            class="btn btn-magenta-solid flex-1"
+            disabled
+          >
+            Join Game
+          </button>
+        </div>
+      </div>
+
+      <!-- Instructions -->
+      <div class="mt-8 text-center max-w-md">
+        <p class="instruction">
+          When a grid cell turns <span class="text-red">RED</span>, tap it first
+          to score!
+        </p>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div
+      id="game-screen"
+      class="screen min-h-screen flex flex-col p-4 grid-pattern scanline hidden"
+    >
+      <!-- Header -->
+      <div class="game-header">
+        <button id="btn-leave" class="btn btn-ghost">
+          <svg
+            class="icon-sm"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="m12 19-7-7 7-7" />
+            <path d="M19 12H5" />
+          </svg>
+          Leave
+        </button>
+
+        <div class="game-code-box">
+          <span class="game-code-label">Game Code</span>
+          <span id="display-game-code" class="game-code neon-text-cyan"></span>
+          <button id="btn-copy" class="btn-icon">
+            <svg
+              id="icon-copy"
+              class="icon-sm"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+              <path
+                d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+              />
+            </svg>
+            <svg
+              id="icon-check"
+              class="icon-sm hidden"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="w-20"></div>
+      </div>
+
+      <!-- Main game area -->
+      <div class="flex-1 flex flex-col items-center justify-center gap-6">
+        <!-- Scores -->
+        <div class="scores-row">
+          <div id="player1-score-card" class="player-card player-card-cyan">
+            <div class="connection-dot connected"></div>
+            <div class="player-icon player-icon-cyan">
+              <svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+            <span id="player1-name" class="player-name text-cyan"
+              >Player 1</span
+            >
+            <div id="player1-score" class="player-score neon-text-cyan">0</div>
+          </div>
+
+          <div class="vs-text">VS</div>
+
+          <div id="player2-score-card" class="player-card player-card-magenta">
+            <div id="player2-dot" class="connection-dot"></div>
+            <div class="player-icon player-icon-magenta">
+              <svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+            <span id="player2-name" class="player-name text-magenta"
+              >Waiting...</span
+            >
+            <div id="player2-score" class="player-score neon-text-magenta">
+              0
+            </div>
+          </div>
+        </div>
+
+        <!-- Waiting message -->
+        <div
+          id="waiting-message"
+          class="neon-card neon-card-cyan glow text-center"
+        >
+          <p class="waiting-text animate-pulse-neon">
+            Waiting for opponent to join...
+          </p>
+          <p class="waiting-subtext">Share the game code with your friend!</p>
+        </div>
+
+        <!-- Countdown overlay -->
+        <div id="countdown-overlay" class="countdown-overlay hidden">
+          <div id="countdown-number" class="countdown-number neon-text-cyan">
+            3
+          </div>
+        </div>
+
+        <!-- Game Over overlay -->
+        <div id="game-over" class="neon-card game-over-card hidden">
+          <svg
+            class="trophy-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+            <path d="M4 22h16" />
+            <path
+              d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"
+            />
+            <path
+              d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"
+            />
+            <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+          </svg>
+          <h2 id="winner-name" class="winner-text">Player Wins!</h2>
+          <p id="final-score" class="final-score">Final Score: 5 - 3</p>
+          <button id="btn-play-again" class="btn btn-cyan mt-4">
+            <svg
+              class="icon-sm"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            Play Again
+          </button>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container">
+          <div id="game-grid" class="game-grid">
+            <!-- Grid cells will be generated by JS -->
+          </div>
+        </div>
+
+        <!-- Start button -->
+        <button
+          id="btn-start"
+          class="btn btn-solid btn-xl animate-pulse-neon hidden"
+        >
+          Start Game
+        </button>
+
+        <!-- Round indicator -->
+        <div id="round-indicator" class="round-indicator hidden">
+          <p id="round-text" class="round-text">Get Ready...</p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="text-center py-4">
+        <p class="footer-text">First to 5 points wins</p>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
