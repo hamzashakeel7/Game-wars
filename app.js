@@ -41,14 +41,12 @@ let currentGameCode = "";
 let isRoundActive = false;
 const WINNING_SCORE = 5;
 
-// --- AUDIO SYSTEM (NEW) ---
-// "Mission Impossible" Theme (Hosted on Archive.org)
-const bgMusic = new Audio(
-  "https://ia800403.us.archive.org/24/items/MissionImpossibleTheme/Mission_Impossible_Theme.mp3"
-);
+// --- AUDIO SYSTEM (FIXED) ---
+// Using a reliable high-energy Arcade Game Theme (Hosted by Google/CodeSkulptor)
+const bgMusic = new Audio("music.mp3");
 bgMusic.loop = true;
-bgMusic.volume = 0.5; // 50% volume
-let isMuted = false;
+bgMusic.volume = 0.4; // 40% volume (Game music can be loud)
+let isMusicPlaying = false;
 
 // --- DOM ELEMENTS ---
 const dashboard = document.getElementById("dashboard");
@@ -93,7 +91,7 @@ function showToast(title, msg) {
   setTimeout(() => toast.remove(), 3000);
 }
 
-// --- NEW: MUSIC CONTROLS ---
+// --- MUSIC CONTROLS (ROBUST) ---
 function initAudioControls() {
   // Create Mute Button dynamically
   const muteBtn = document.createElement("button");
@@ -118,36 +116,50 @@ function initAudioControls() {
     transition: "all 0.3s ease",
   });
 
-  // Toggle Mute Logic
+  // Safe Play Function that catches errors
+  const tryToPlay = () => {
+    if (isMusicPlaying) return; // Already playing
+
+    bgMusic
+      .play()
+      .then(() => {
+        isMusicPlaying = true;
+        muteBtn.innerHTML = "🔊";
+        muteBtn.style.borderColor = "#00f3ff";
+        console.log("Audio Unlocked & Playing!");
+
+        // Remove listeners once successful so we don't keep trying
+        document.removeEventListener("click", tryToPlay);
+        document.removeEventListener("touchstart", tryToPlay);
+        document.removeEventListener("keydown", tryToPlay);
+      })
+      .catch((err) => {
+        // We expect errors here until the user clicks. Just log silently or minimal.
+        // console.log("Waiting for user interaction...");
+      });
+  };
+
+  // Add robust listeners for Mobile (Touch) and Desktop (Click/Key)
+  // The browser will BLOCK audio until one of these events happens.
+  document.addEventListener("click", tryToPlay);
+  document.addEventListener("touchstart", tryToPlay);
+  document.addEventListener("keydown", tryToPlay);
+
+  // Manual Toggle Logic
   muteBtn.addEventListener("click", (e) => {
-    e.stopPropagation(); // Prevent triggering other clicks
-    isMuted = !isMuted;
-    if (isMuted) {
+    e.stopPropagation(); // Prevent triggering tryToPlay again
+    if (isMusicPlaying) {
       bgMusic.pause();
+      isMusicPlaying = false;
       muteBtn.innerHTML = "🔇";
       muteBtn.style.borderColor = "#ff0055"; // Red border when muted
       muteBtn.style.boxShadow = "0 0 10px #ff0055";
     } else {
-      bgMusic.play().catch((e) => console.log("Audio play blocked:", e));
-      muteBtn.innerHTML = "🔊";
-      muteBtn.style.borderColor = "#00f3ff"; // Blue border when active
-      muteBtn.style.boxShadow = "0 0 10px #00f3ff";
+      tryToPlay(); // Use the safe function
     }
   });
 
   document.body.appendChild(muteBtn);
-
-  // Auto-play workaround: Browser won't let us play audio until user interacts.
-  // We attach a one-time listener to the body.
-  document.body.addEventListener(
-    "click",
-    () => {
-      if (!isMuted && bgMusic.paused) {
-        bgMusic.play().catch((e) => console.log("Waiting for interaction..."));
-      }
-    },
-    { once: true }
-  );
 }
 
 // --- UI BUTTON HANDLING ---
