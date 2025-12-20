@@ -1,5 +1,4 @@
-// 1. Import the specific Firebase functions we need for the game
-// We use version 10.14.1 to ensure stability
+// 1. Import Firebase & Confetti
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getDatabase,
@@ -10,12 +9,17 @@ import {
   onDisconnect,
   remove,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+// NEW: Import Confetti Library
+import confetti from "https://cdn.skypack.dev/canvas-confetti";
 
-// 2. YOUR SPECIFIC FIREBASE CONFIGURATION
+// 2. CONFIGURATION
 const firebaseConfig = {
   apiKey: "AIzaSyBgOFZLR2uuuAkvNC4oR0b0nLHvKr1sOe0",
   authDomain: "game-wars.firebaseapp.com",
+
+  // ⚠️ IMPORTANT: REPLACE THIS URL WITH YOUR ACTUAL DATABASE URL ⚠️
   databaseURL: "https://game-wars-default-rtdb.firebaseio.com",
+
   projectId: "game-wars",
   storageBucket: "game-wars.firebasestorage.app",
   messagingSenderId: "783310585542",
@@ -23,17 +27,28 @@ const firebaseConfig = {
   measurementId: "G-178CLNJ55W",
 };
 
-// 3. Initialize Firebase
+// 3. Initialize
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- GAME VARIABLES ---
+console.log("🔥 Firebase Initialized");
+
+// --- VARIABLES ---
 let myRole = null; // 'host' or 'guest'
 let currentGameRef = null;
 let myPlayerName = "";
 let currentGameCode = "";
+let isRoundActive = false;
 const WINNING_SCORE = 5;
-let gameActive = false;
+
+// --- AUDIO SYSTEM (NEW) ---
+// "Mission Impossible" Theme (Hosted on Archive.org)
+const bgMusic = new Audio(
+  "https://ia800403.us.archive.org/24/items/MissionImpossibleTheme/Mission_Impossible_Theme.mp3"
+);
+bgMusic.loop = true;
+bgMusic.volume = 0.5; // 50% volume
+let isMuted = false;
 
 // --- DOM ELEMENTS ---
 const dashboard = document.getElementById("dashboard");
@@ -43,23 +58,25 @@ const modeCreate = document.getElementById("mode-create");
 const modeJoin = document.getElementById("mode-join");
 const playerNameInput = document.getElementById("player-name");
 const gameCodeInput = document.getElementById("game-code-input");
+
+// Game Screen Elements
 const player1NameEl = document.getElementById("player1-name");
 const player2NameEl = document.getElementById("player2-name");
 const player1ScoreEl = document.getElementById("player1-score");
 const player2ScoreEl = document.getElementById("player2-score");
 const waitingMessage = document.getElementById("waiting-message");
-const btnStart = document.getElementById("btn-start");
+const btnStart = document.getElementById("btn-start"); // The Game Start Button
 const gameGrid = document.getElementById("game-grid");
 const gameOver = document.getElementById("game-over");
-const btnStartGame = document.getElementById("btn-start-game");
 const roundIndicator = document.getElementById("round-indicator");
 const roundText = document.getElementById("round-text");
+const displayGameCode = document.getElementById("display-game-code");
 
 // --- HELPER FUNCTIONS ---
 function generateGameCode() {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 5; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
@@ -67,37 +84,89 @@ function generateGameCode() {
 
 function showToast(title, msg) {
   const container = document.getElementById("toast-container");
+  if (!container) return; // Guard clause
+
   const toast = document.createElement("div");
   toast.className = "toast";
-  toast.innerHTML = `
-    <div class="toast-title">${title}</div>
-    <div class="toast-description">${msg}</div>
-  `;
+  toast.innerHTML = `<div class="toast-title">${title}</div><div class="toast-description">${msg}</div>`;
   container.appendChild(toast);
-
-  setTimeout(() => {
-    toast.remove();
-  }, 3000);
-  console.log(`[${title}] ${msg}`);
+  setTimeout(() => toast.remove(), 3000);
 }
 
-// --- INPUT HANDLING ---
+// --- NEW: MUSIC CONTROLS ---
+function initAudioControls() {
+  // Create Mute Button dynamically
+  const muteBtn = document.createElement("button");
+  muteBtn.id = "btn-mute";
+  muteBtn.innerHTML = "🔊"; // Speaker Icon
 
-// 1. Enable Dashboard Buttons when Name is typed
+  // Style it to float top-right
+  Object.assign(muteBtn.style, {
+    position: "fixed",
+    top: "20px",
+    right: "20px",
+    zIndex: "1000",
+    background: "rgba(0, 0, 0, 0.7)",
+    border: "2px solid #00f3ff",
+    borderRadius: "50%",
+    width: "50px",
+    height: "50px",
+    fontSize: "24px",
+    cursor: "pointer",
+    color: "#fff",
+    boxShadow: "0 0 10px #00f3ff",
+    transition: "all 0.3s ease",
+  });
+
+  // Toggle Mute Logic
+  muteBtn.addEventListener("click", (e) => {
+    e.stopPropagation(); // Prevent triggering other clicks
+    isMuted = !isMuted;
+    if (isMuted) {
+      bgMusic.pause();
+      muteBtn.innerHTML = "🔇";
+      muteBtn.style.borderColor = "#ff0055"; // Red border when muted
+      muteBtn.style.boxShadow = "0 0 10px #ff0055";
+    } else {
+      bgMusic.play().catch((e) => console.log("Audio play blocked:", e));
+      muteBtn.innerHTML = "🔊";
+      muteBtn.style.borderColor = "#00f3ff"; // Blue border when active
+      muteBtn.style.boxShadow = "0 0 10px #00f3ff";
+    }
+  });
+
+  document.body.appendChild(muteBtn);
+
+  // Auto-play workaround: Browser won't let us play audio until user interacts.
+  // We attach a one-time listener to the body.
+  document.body.addEventListener(
+    "click",
+    () => {
+      if (!isMuted && bgMusic.paused) {
+        bgMusic.play().catch((e) => console.log("Waiting for interaction..."));
+      }
+    },
+    { once: true }
+  );
+}
+
+// --- UI BUTTON HANDLING ---
+
+// Enable buttons when typing name
 playerNameInput.addEventListener("input", () => {
   const hasName = playerNameInput.value.trim().length > 0;
   document.getElementById("btn-create").disabled = !hasName;
   document.getElementById("btn-join").disabled = !hasName;
 });
 
-// 2. Enable "Join Game" button when Code is typed and Auto-Uppercase
+// Enable Join button when typing code
 gameCodeInput.addEventListener("input", () => {
   gameCodeInput.value = gameCodeInput.value.toUpperCase();
-  const code = gameCodeInput.value.trim();
-  document.getElementById("btn-join-game").disabled = code.length < 4;
+  document.getElementById("btn-join-game").disabled =
+    gameCodeInput.value.trim().length < 4;
 });
 
-// --- UI NAVIGATION ---
+// Navigation
 document.getElementById("btn-create").addEventListener("click", () => {
   const name = playerNameInput.value.trim();
   if (name) {
@@ -126,136 +195,144 @@ document.getElementById("btn-join-back").addEventListener("click", () => {
   modeSelect.classList.remove("hidden");
 });
 
-// --- CORE FIREBASE LOGIC ---
+// Copy Code Button
+document.getElementById("btn-copy").addEventListener("click", () => {
+  navigator.clipboard.writeText(currentGameCode).then(() => {
+    showToast("Copied!", "Code copied to clipboard.");
+  });
+});
 
-// A. HOST CREATES GAME - FIXED
-btnStartGame.addEventListener("click", () => {
+// --- CORE LOGIC ---
+
+// 1. HOST CREATES GAME
+document.getElementById("btn-start-game").addEventListener("click", () => {
   myPlayerName = playerNameInput.value.trim();
-  if (!myPlayerName) {
-    alert("Please enter your name first!");
-    return;
-  }
+  if (!myPlayerName) return alert("Enter name!");
 
   const code = generateGameCode();
   currentGameCode = code;
   myRole = "host";
 
-  showToast("Game Created", `Code: ${code}`);
+  // Visual Feedback
+  const btn = document.getElementById("btn-start-game");
+  btn.innerText = "Creating...";
+  btn.disabled = true;
 
-  // Create Reference to 'games/CODE'
   currentGameRef = ref(db, `games/${code}`);
 
-  // Set Initial Data
   set(currentGameRef, {
     host: { name: myPlayerName, score: 0 },
     guest: { name: "", score: 0 },
-    gameState: "waiting", // waiting -> ready -> playing -> finished
+    gameState: "waiting",
     activeCell: -1,
     round: 0,
-    lastWinner: null,
   })
     .then(() => {
-      // If Host disconnects, delete the game to keep DB clean
       onDisconnect(currentGameRef).remove();
-
       enterLobbyUI(code);
-      listenToGame(code); // Start Watching for Changes
+      listenToGame(code);
     })
-    .catch((error) => {
-      console.error("FIREBASE ERROR:", error);
-      alert("Error creating game! Check console for details.");
+    .catch((err) => {
+      console.error(err);
+      alert(
+        "❌ DATABASE CONNECTION FAILED!\n\nPlease check your 'databaseURL' in app.js.\nIt must match the URL in your Firebase Console -> Realtime Database."
+      );
+      btn.innerText = "Start Game";
+      btn.disabled = false;
     });
 });
 
-// B. GUEST JOINS GAME
+// 2. GUEST JOINS GAME
 document.getElementById("btn-join-game").addEventListener("click", () => {
   myPlayerName = playerNameInput.value.trim();
   const code = gameCodeInput.value.trim().toUpperCase();
 
-  if (!myPlayerName) {
-    alert("Enter Name!");
-    return;
-  }
-  if (code.length < 4) {
-    alert("Invalid Code!");
-    return;
-  }
+  if (!myPlayerName || code.length < 4) return alert("Check inputs!");
 
   currentGameCode = code;
   myRole = "guest";
+
+  // Visual Feedback
+  const btn = document.getElementById("btn-join-game");
+  btn.innerText = "Joining...";
+  btn.disabled = true;
+
   currentGameRef = ref(db, `games/${code}`);
 
-  // Check if game exists before joining
+  // Check if game exists
   onValue(
     currentGameRef,
     (snapshot) => {
       const data = snapshot.val();
 
       if (!data) {
-        alert("Game not found!");
+        alert("Game not found! Check the code.");
+        btn.innerText = "Join Game";
+        btn.disabled = false;
         return;
       }
 
-      // If game exists AND is waiting for player AND guest slot is empty
+      // Join Condition: Game is waiting AND Guest slot is empty
       if (
-        data &&
         data.gameState === "waiting" &&
         (!data.guest.name || data.guest.name === "")
       ) {
-        // Join the game
+        // Update Firebase
         update(currentGameRef, {
           "guest/name": myPlayerName,
           "guest/score": 0,
-          gameState: "ready",
+          gameState: "ready", // This triggers the start button for Host
         });
 
-        // If Guest disconnects, just clear their name
         onDisconnect(ref(db, `games/${code}/guest`)).update({
           name: "",
           score: 0,
         });
 
         enterLobbyUI(code);
-        listenToGame(code); // Start Watching for Changes
-        showToast("Joined Game", "Waiting for host to start...");
+        listenToGame(code);
       } else {
-        if (data.guest.name && data.guest.name !== "") {
-          alert("Game is full!");
-        } else if (data.gameState !== "waiting") {
-          alert("Game already in progress!");
-        }
+        alert("Game is full or already started!");
+        btn.innerText = "Join Game";
+        btn.disabled = false;
       }
     },
     { onlyOnce: true }
-  );
+  ); // Important: Run this check only once
 });
 
-// C. THE REALTIME LISTENER (Runs whenever DB changes)
+// 3. REALTIME LISTENER (The Brain)
 function listenToGame(code) {
   onValue(ref(db, `games/${code}`), (snapshot) => {
     const data = snapshot.val();
 
     if (!data) {
-      alert("Game ended.");
+      alert("Game ended by host.");
       location.reload();
       return;
     }
 
-    // 1. Update UI Text
+    // A. Update Names & Scores
     player1NameEl.innerText = data.host.name;
     player1ScoreEl.innerText = data.host.score;
-    player2NameEl.innerText = data.guest.name || "Waiting...";
-    player2ScoreEl.innerText = data.guest.score || 0;
 
-    const player2Dot = document.getElementById("player2-dot");
-    if (player2Dot) {
-      player2Dot.classList.toggle(
-        "connected",
-        !!(data.guest && data.guest.name)
-      );
+    // Check if guest exists
+    if (data.guest && data.guest.name) {
+      player2NameEl.innerText = data.guest.name;
+      player2ScoreEl.innerText = data.guest.score;
+      document.getElementById("player2-dot").classList.add("connected");
+      document
+        .getElementById("player2-score-card")
+        .classList.remove("disconnected");
+    } else {
+      player2NameEl.innerText = "Waiting...";
+      document.getElementById("player2-dot").classList.remove("connected");
+      document
+        .getElementById("player2-score-card")
+        .classList.add("disconnected");
     }
 
-    // 2. Handle Game States
+    // B. Handle Game States
     if (data.gameState === "waiting") {
       waitingMessage.classList.remove("hidden");
       btnStart.classList.add("hidden");
@@ -263,27 +340,43 @@ function listenToGame(code) {
     } else if (data.gameState === "ready") {
       waitingMessage.classList.add("hidden");
       roundIndicator.classList.remove("hidden");
-      roundText.textContent = "Ready to play!";
+      roundText.innerText = "READY TO START";
       roundText.classList.remove("active");
 
-      // Only Host sees Start Button
+      // LOGIC: If I am Host, SHOW Start Button
       if (myRole === "host") {
         btnStart.classList.remove("hidden");
+        btnStart.disabled = false; // Ensure it's clickable
       } else {
         btnStart.classList.add("hidden");
+        roundText.innerText = "Waiting for Host...";
       }
     } else if (data.gameState === "playing") {
       waitingMessage.classList.add("hidden");
-      btnStart.classList.add("hidden");
+      btnStart.classList.add("hidden"); // Hide button during game
       roundIndicator.classList.remove("hidden");
 
       if (data.activeCell === -1) {
-        roundText.textContent = "Get ready...";
-        roundText.classList.add("active");
+        // --- ROUND ENDED / WAITING PHASE ---
+        roundText.innerText = "Get Ready...";
+        roundText.classList.remove("active");
+        renderGrid(-1); // Force clear the grid immediately so the pulse stops
+
+        // LOGIC FIX: If round was just active, and now it's -1, it means someone clicked.
+        // The HOST triggers the next round.
+        if (isRoundActive === true) {
+          isRoundActive = false; // Reset local flag
+          if (myRole === "host") {
+            // Schedule next round
+            runHostGameLoop();
+          }
+        }
       } else {
-        roundText.textContent = "TAP THE RED CELL!";
+        // --- ROUND ACTIVE PHASE ---
+        isRoundActive = true; // Mark round as active locally
+        roundText.innerText = "TAP RED CELL!";
         roundText.classList.add("active");
-        renderGrid(data.activeCell); // Lights up the Red Box
+        renderGrid(data.activeCell); // Light up box
       }
     } else if (data.gameState === "finished") {
       showGameOverUI(
@@ -296,82 +389,69 @@ function listenToGame(code) {
   });
 }
 
-// --- GAMEPLAY LOGIC ---
+// 4. GAME LOOP LOGIC
 
-// Start Button (Host Only)
+// Host clicks "Start Game"
 btnStart.addEventListener("click", () => {
   if (myRole === "host") {
+    // Hide button immediately to prevent double clicks
+    btnStart.classList.add("hidden");
+
+    // Update DB to playing
     update(currentGameRef, {
       gameState: "playing",
       activeCell: -1,
       round: 1,
     });
 
-    // Start countdown
-    startCountdown(3);
+    // Start local countdown then game loop
+    startCountdownAndRun();
   }
 });
 
-function startCountdown(seconds) {
-  const countdownOverlay = document.getElementById("countdown-overlay");
-  const countdownNumber = document.getElementById("countdown-number");
+function startCountdownAndRun() {
+  const overlay = document.getElementById("countdown-overlay");
+  const num = document.getElementById("countdown-number");
 
-  countdownOverlay.classList.remove("hidden");
-  countdownNumber.textContent = seconds;
+  overlay.classList.remove("hidden");
+  let count = 3;
+  num.innerText = count;
 
-  let count = seconds;
-  const interval = setInterval(() => {
+  const timer = setInterval(() => {
     count--;
     if (count > 0) {
-      countdownNumber.textContent = count;
+      num.innerText = count;
     } else {
-      clearInterval(interval);
-      countdownOverlay.classList.add("hidden");
-      // Start the game loop
-      runGameLoop();
+      clearInterval(timer);
+      overlay.classList.add("hidden");
+      runHostGameLoop(); // Start the randomizer
     }
   }, 1000);
 }
 
-// The Timer Loop (Runs on Host machine only)
-function runGameLoop() {
+function runHostGameLoop() {
   if (myRole !== "host") return;
 
-  // Random delay (1-3 seconds)
+  // Random delay 1s - 3s
   const delay = Math.random() * 2000 + 1000;
 
   setTimeout(() => {
-    // Read latest score to check for winner
+    // Check winner before starting new round
     onValue(
       currentGameRef,
       (snap) => {
         const data = snap.val();
-        if (!data) return;
+        if (!data || data.gameState !== "playing") return;
 
         if (
           data.host.score >= WINNING_SCORE ||
           data.guest.score >= WINNING_SCORE
         ) {
-          update(currentGameRef, {
-            gameState: "finished",
-            activeCell: -1,
-          });
+          update(currentGameRef, { gameState: "finished" });
         } else {
-          // Pick new random cell
+          // Pick random cell
           const randomCell = Math.floor(Math.random() * 9);
-          update(currentGameRef, {
-            activeCell: randomCell,
-            round: (data.round || 0) + 1,
-          });
-
-          // Set timeout to automatically reset if no one clicks
-          setTimeout(() => {
-            if (myRole === "host") {
-              update(currentGameRef, { activeCell: -1 });
-              // Start next round
-              runGameLoop();
-            }
-          }, 1500); // Give players 1.5 seconds to click
+          update(currentGameRef, { activeCell: randomCell });
         }
       },
       { onlyOnce: true }
@@ -379,44 +459,32 @@ function runGameLoop() {
   }, delay);
 }
 
-// Clicking a Box
+// Handling Clicks
 function handleCellClick(index) {
   if (!currentGameRef) return;
 
-  // Check with DB if this is the active cell
   onValue(
     currentGameRef,
     (snapshot) => {
       const data = snapshot.val();
-      if (!data || data.gameState !== "playing") return;
-
-      if (data.activeCell === index) {
-        // Valid Click!
-
-        // 1. Reset cell active state immediately
+      // Validate Click
+      if (data && data.gameState === "playing" && data.activeCell === index) {
+        // 1. Reset Active Cell
         update(currentGameRef, { activeCell: -1 });
 
-        // 2. Increment Score
-        const updateData = {};
+        // 2. Update Score
+        const updates = {};
         if (myRole === "host") {
-          updateData["host/score"] = data.host.score + 1;
-          updateData["lastWinner"] = "host";
+          updates["host/score"] = data.host.score + 1;
         } else {
-          updateData["guest/score"] = data.guest.score + 1;
-          updateData["lastWinner"] = "guest";
+          updates["guest/score"] = data.guest.score + 1;
         }
+        update(currentGameRef, updates);
 
-        update(currentGameRef, updateData);
+        showToast("Point!", "Fast reflexes!");
 
-        // 3. Show who scored
-        showToast("Score!", `${myPlayerName} scored!`);
-
-        // 4. Trigger next round (Host only)
-        if (myRole === "host") {
-          setTimeout(() => {
-            runGameLoop();
-          }, 1000);
-        }
+        // 3. REMOVED THE MANUAL HOST TRIGGER HERE
+        // We now rely on 'listenToGame' to detect the reset to -1
       }
     },
     { onlyOnce: true }
@@ -428,46 +496,28 @@ function handleCellClick(index) {
 function enterLobbyUI(code) {
   dashboard.classList.add("hidden");
   gameScreen.classList.remove("hidden");
-  document.getElementById("display-game-code").innerText = code;
+  displayGameCode.innerText = code;
 
-  // Copy code button
-  document.getElementById("btn-copy").addEventListener("click", () => {
-    navigator.clipboard.writeText(code).then(() => {
-      const iconCopy = document.getElementById("icon-copy");
-      const iconCheck = document.getElementById("icon-check");
-      iconCopy.classList.add("hidden");
-      iconCheck.classList.remove("hidden");
-      setTimeout(() => {
-        iconCopy.classList.remove("hidden");
-        iconCheck.classList.add("hidden");
-      }, 2000);
-      showToast("Copied!", "Game code copied to clipboard!");
-    });
-  });
-
-  // Generate the Grid Buttons
+  // Build Grid
   gameGrid.innerHTML = "";
   for (let i = 0; i < 9; i++) {
-    let cell = document.createElement("button");
-    cell.className = "grid-cell";
-    // Add number for style
-    cell.innerHTML = `<span class="cell-number">${i + 1}</span>`;
-    cell.onclick = () => handleCellClick(i);
-    gameGrid.appendChild(cell);
+    let btn = document.createElement("button");
+    btn.className = "grid-cell";
+    btn.innerHTML = `<span class="cell-number">${i + 1}</span>`;
+    btn.onclick = () => handleCellClick(i);
+    gameGrid.appendChild(btn);
   }
 }
 
-function renderGrid(activeCellIndex) {
+function renderGrid(activeIdx) {
   const cells = document.querySelectorAll(".grid-cell");
-  cells.forEach((cell, index) => {
+  cells.forEach((cell, idx) => {
     cell.classList.remove("active");
-    // Remove old 'ping' animations
     const oldPing = cell.querySelector(".ping");
     if (oldPing) oldPing.remove();
 
-    if (index === activeCellIndex && activeCellIndex !== -1) {
+    if (idx === activeIdx && activeIdx !== -1) {
       cell.classList.add("active");
-      // Add visual ping effect
       let ping = document.createElement("div");
       ping.className = "ping";
       cell.appendChild(ping);
@@ -475,18 +525,41 @@ function renderGrid(activeCellIndex) {
   });
 }
 
-function showGameOverUI(hostScore, guestScore, hostName, guestName) {
+function showGameOverUI(hScore, gScore, hName, gName) {
   gameOver.classList.remove("hidden");
-  const winnerName = hostScore > guestScore ? hostName : guestName;
-  const isHostWinner = hostScore > guestScore;
+  const winner = hScore > gScore ? hName : gName;
+  const isHostWin = hScore > gScore;
 
-  document.getElementById("winner-name").innerText = `${winnerName} Wins!`;
-  document.getElementById(
-    "final-score"
-  ).innerText = `${hostScore} - ${guestScore}`;
+  document.getElementById("winner-name").innerText = `${winner} WINS!`;
+  document.getElementById("final-score").innerText = `${hScore} - ${gScore}`;
 
-  // Style update based on winner
-  if (isHostWinner) {
+  // NEW: TRIGGER CONFETTI BLAST!
+  const colors = isHostWin ? ["#00f3ff", "#ffffff"] : ["#ff0055", "#ffffff"];
+  const duration = 3000;
+  const end = Date.now() + duration;
+
+  (function frame() {
+    confetti({
+      particleCount: 5,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0 },
+      colors: colors,
+    });
+    confetti({
+      particleCount: 5,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1 },
+      colors: colors,
+    });
+
+    if (Date.now() < end) {
+      requestAnimationFrame(frame);
+    }
+  })();
+
+  if (isHostWin) {
     gameOver.className = "neon-card neon-card-cyan game-over-card";
     document.getElementById("winner-name").className =
       "winner-text neon-text-cyan";
@@ -497,24 +570,12 @@ function showGameOverUI(hostScore, guestScore, hostName, guestName) {
   }
 }
 
-// Navigation Buttons
-document.getElementById("btn-play-again").addEventListener("click", () => {
-  location.reload();
-});
+// INITIALIZE AUDIO
+initAudioControls();
 
-document.getElementById("btn-leave").addEventListener("click", () => {
-  // If host, remove the game from Firebase
-  if (myRole === "host" && currentGameRef) {
-    remove(currentGameRef);
-  }
-  location.reload();
-});
-
-// Initialize
-document.addEventListener("DOMContentLoaded", () => {
-  // Enable/disable buttons based on initial state
-  const hasName = playerNameInput.value.trim().length > 0;
-  document.getElementById("btn-create").disabled = !hasName;
-  document.getElementById("btn-join").disabled = !hasName;
-  document.getElementById("btn-join-game").disabled = true;
-});
+document
+  .getElementById("btn-play-again")
+  .addEventListener("click", () => location.reload());
+document
+  .getElementById("btn-leave")
+  .addEventListener("click", () => location.reload());
