@@ -33,19 +33,16 @@ const db = getDatabase(app);
 
 console.log("🔥 Firebase Initialized");
 
-// --- VARIABLES ---
-let myRole = null; // 'host' or 'guest'
+let myRole = null;
 let currentGameRef = null;
 let myPlayerName = "";
 let currentGameCode = "";
 let isRoundActive = false;
 const WINNING_SCORE = 5;
 
-// --- AUDIO SYSTEM (FIXED) ---
-// Using a reliable high-energy Arcade Game Theme (Hosted by Google/CodeSkulptor)
 const bgMusic = new Audio("music.mp3");
 bgMusic.loop = true;
-bgMusic.volume = 0.4; // 40% volume (Game music can be loud)
+bgMusic.volume = 0.4;
 let isMusicPlaying = false;
 
 // --- DOM ELEMENTS ---
@@ -63,14 +60,13 @@ const player2NameEl = document.getElementById("player2-name");
 const player1ScoreEl = document.getElementById("player1-score");
 const player2ScoreEl = document.getElementById("player2-score");
 const waitingMessage = document.getElementById("waiting-message");
-const btnStart = document.getElementById("btn-start"); // The Game Start Button
+const btnStart = document.getElementById("btn-start");
 const gameGrid = document.getElementById("game-grid");
 const gameOver = document.getElementById("game-over");
 const roundIndicator = document.getElementById("round-indicator");
 const roundText = document.getElementById("round-text");
 const displayGameCode = document.getElementById("display-game-code");
 
-// --- HELPER FUNCTIONS ---
 function generateGameCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -80,9 +76,10 @@ function generateGameCode() {
   return code;
 }
 
+// Helper function
 function showToast(title, msg) {
   const container = document.getElementById("toast-container");
-  if (!container) return; // Guard clause
+  if (!container) return;
 
   const toast = document.createElement("div");
   toast.className = "toast";
@@ -91,7 +88,7 @@ function showToast(title, msg) {
   setTimeout(() => toast.remove(), 3000);
 }
 
-// --- MUSIC CONTROLS (ROBUST) ---
+// music function
 function initAudioControls() {
   // Create Mute Button dynamically
   const muteBtn = document.createElement("button");
@@ -116,9 +113,8 @@ function initAudioControls() {
     transition: "all 0.3s ease",
   });
 
-  // Safe Play Function that catches errors
   const tryToPlay = () => {
-    if (isMusicPlaying) return; // Already playing
+    if (isMusicPlaying) return;
 
     bgMusic
       .play()
@@ -128,57 +124,45 @@ function initAudioControls() {
         muteBtn.style.borderColor = "#00f3ff";
         console.log("Audio Unlocked & Playing!");
 
-        // Remove listeners once successful so we don't keep trying
         document.removeEventListener("click", tryToPlay);
         document.removeEventListener("touchstart", tryToPlay);
         document.removeEventListener("keydown", tryToPlay);
       })
-      .catch((err) => {
-        // We expect errors here until the user clicks. Just log silently or minimal.
-        // console.log("Waiting for user interaction...");
-      });
+      .catch((err) => {});
   };
 
-  // Add robust listeners for Mobile (Touch) and Desktop (Click/Key)
-  // The browser will BLOCK audio until one of these events happens.
   document.addEventListener("click", tryToPlay);
   document.addEventListener("touchstart", tryToPlay);
   document.addEventListener("keydown", tryToPlay);
 
-  // Manual Toggle Logic
   muteBtn.addEventListener("click", (e) => {
-    e.stopPropagation(); // Prevent triggering tryToPlay again
+    e.stopPropagation();
     if (isMusicPlaying) {
       bgMusic.pause();
       isMusicPlaying = false;
       muteBtn.innerHTML = "🔇";
-      muteBtn.style.borderColor = "#ff0055"; // Red border when muted
+      muteBtn.style.borderColor = "#ff0055";
       muteBtn.style.boxShadow = "0 0 10px #ff0055";
     } else {
-      tryToPlay(); // Use the safe function
+      tryToPlay();
     }
   });
 
   document.body.appendChild(muteBtn);
 }
 
-// --- UI BUTTON HANDLING ---
-
-// Enable buttons when typing name
 playerNameInput.addEventListener("input", () => {
   const hasName = playerNameInput.value.trim().length > 0;
   document.getElementById("btn-create").disabled = !hasName;
   document.getElementById("btn-join").disabled = !hasName;
 });
 
-// Enable Join button when typing code
 gameCodeInput.addEventListener("input", () => {
   gameCodeInput.value = gameCodeInput.value.toUpperCase();
   document.getElementById("btn-join-game").disabled =
     gameCodeInput.value.trim().length < 4;
 });
 
-// Navigation
 document.getElementById("btn-create").addEventListener("click", () => {
   const name = playerNameInput.value.trim();
   if (name) {
@@ -214,9 +198,6 @@ document.getElementById("btn-copy").addEventListener("click", () => {
   });
 });
 
-// --- CORE LOGIC ---
-
-// 1. HOST CREATES GAME
 document.getElementById("btn-start-game").addEventListener("click", () => {
   myPlayerName = playerNameInput.value.trim();
   if (!myPlayerName) return alert("Enter name!");
@@ -225,7 +206,6 @@ document.getElementById("btn-start-game").addEventListener("click", () => {
   currentGameCode = code;
   myRole = "host";
 
-  // Visual Feedback
   const btn = document.getElementById("btn-start-game");
   btn.innerText = "Creating...";
   btn.disabled = true;
@@ -254,7 +234,6 @@ document.getElementById("btn-start-game").addEventListener("click", () => {
     });
 });
 
-// 2. GUEST JOINS GAME
 document.getElementById("btn-join-game").addEventListener("click", () => {
   myPlayerName = playerNameInput.value.trim();
   const code = gameCodeInput.value.trim().toUpperCase();
@@ -264,14 +243,12 @@ document.getElementById("btn-join-game").addEventListener("click", () => {
   currentGameCode = code;
   myRole = "guest";
 
-  // Visual Feedback
   const btn = document.getElementById("btn-join-game");
   btn.innerText = "Joining...";
   btn.disabled = true;
 
   currentGameRef = ref(db, `games/${code}`);
 
-  // Check if game exists
   onValue(
     currentGameRef,
     (snapshot) => {
@@ -284,16 +261,14 @@ document.getElementById("btn-join-game").addEventListener("click", () => {
         return;
       }
 
-      // Join Condition: Game is waiting AND Guest slot is empty
       if (
         data.gameState === "waiting" &&
         (!data.guest.name || data.guest.name === "")
       ) {
-        // Update Firebase
         update(currentGameRef, {
           "guest/name": myPlayerName,
           "guest/score": 0,
-          gameState: "ready", // This triggers the start button for Host
+          gameState: "ready",
         });
 
         onDisconnect(ref(db, `games/${code}/guest`)).update({
@@ -310,10 +285,9 @@ document.getElementById("btn-join-game").addEventListener("click", () => {
       }
     },
     { onlyOnce: true }
-  ); // Important: Run this check only once
+  );
 });
 
-// 3. REALTIME LISTENER (The Brain)
 function listenToGame(code) {
   onValue(ref(db, `games/${code}`), (snapshot) => {
     const data = snapshot.val();
@@ -324,7 +298,6 @@ function listenToGame(code) {
       return;
     }
 
-    // A. Update Names & Scores
     player1NameEl.innerText = data.host.name;
     player1ScoreEl.innerText = data.host.score;
 
@@ -355,40 +328,34 @@ function listenToGame(code) {
       roundText.innerText = "READY TO START";
       roundText.classList.remove("active");
 
-      // LOGIC: If I am Host, SHOW Start Button
       if (myRole === "host") {
         btnStart.classList.remove("hidden");
-        btnStart.disabled = false; // Ensure it's clickable
+        btnStart.disabled = false;
       } else {
         btnStart.classList.add("hidden");
         roundText.innerText = "Waiting for Host...";
       }
     } else if (data.gameState === "playing") {
       waitingMessage.classList.add("hidden");
-      btnStart.classList.add("hidden"); // Hide button during game
+      btnStart.classList.add("hidden");
       roundIndicator.classList.remove("hidden");
 
       if (data.activeCell === -1) {
-        // --- ROUND ENDED / WAITING PHASE ---
         roundText.innerText = "Get Ready...";
         roundText.classList.remove("active");
-        renderGrid(-1); // Force clear the grid immediately so the pulse stops
+        renderGrid(-1);
 
-        // LOGIC FIX: If round was just active, and now it's -1, it means someone clicked.
-        // The HOST triggers the next round.
         if (isRoundActive === true) {
-          isRoundActive = false; // Reset local flag
+          isRoundActive = false;
           if (myRole === "host") {
-            // Schedule next round
             runHostGameLoop();
           }
         }
       } else {
-        // --- ROUND ACTIVE PHASE ---
-        isRoundActive = true; // Mark round as active locally
+        isRoundActive = true;
         roundText.innerText = "TAP RED CELL!";
         roundText.classList.add("active");
-        renderGrid(data.activeCell); // Light up box
+        renderGrid(data.activeCell);
       }
     } else if (data.gameState === "finished") {
       showGameOverUI(
@@ -401,22 +368,16 @@ function listenToGame(code) {
   });
 }
 
-// 4. GAME LOOP LOGIC
-
-// Host clicks "Start Game"
 btnStart.addEventListener("click", () => {
   if (myRole === "host") {
-    // Hide button immediately to prevent double clicks
     btnStart.classList.add("hidden");
 
-    // Update DB to playing
     update(currentGameRef, {
       gameState: "playing",
       activeCell: -1,
       round: 1,
     });
 
-    // Start local countdown then game loop
     startCountdownAndRun();
   }
 });
@@ -436,7 +397,7 @@ function startCountdownAndRun() {
     } else {
       clearInterval(timer);
       overlay.classList.add("hidden");
-      runHostGameLoop(); // Start the randomizer
+      runHostGameLoop();
     }
   }, 1000);
 }
@@ -444,11 +405,9 @@ function startCountdownAndRun() {
 function runHostGameLoop() {
   if (myRole !== "host") return;
 
-  // Random delay 1s - 3s
   const delay = Math.random() * 2000 + 1000;
 
   setTimeout(() => {
-    // Check winner before starting new round
     onValue(
       currentGameRef,
       (snap) => {
@@ -461,7 +420,6 @@ function runHostGameLoop() {
         ) {
           update(currentGameRef, { gameState: "finished" });
         } else {
-          // Pick random cell
           const randomCell = Math.floor(Math.random() * 9);
           update(currentGameRef, { activeCell: randomCell });
         }
@@ -471,7 +429,6 @@ function runHostGameLoop() {
   }, delay);
 }
 
-// Handling Clicks
 function handleCellClick(index) {
   if (!currentGameRef) return;
 
@@ -479,12 +436,9 @@ function handleCellClick(index) {
     currentGameRef,
     (snapshot) => {
       const data = snapshot.val();
-      // Validate Click
       if (data && data.gameState === "playing" && data.activeCell === index) {
-        // 1. Reset Active Cell
         update(currentGameRef, { activeCell: -1 });
 
-        // 2. Update Score
         const updates = {};
         if (myRole === "host") {
           updates["host/score"] = data.host.score + 1;
@@ -494,16 +448,11 @@ function handleCellClick(index) {
         update(currentGameRef, updates);
 
         showToast("Point!", "Fast reflexes!");
-
-        // 3. REMOVED THE MANUAL HOST TRIGGER HERE
-        // We now rely on 'listenToGame' to detect the reset to -1
       }
     },
     { onlyOnce: true }
   );
 }
-
-// --- VISUAL UI FUNCTIONS ---
 
 function enterLobbyUI(code) {
   dashboard.classList.add("hidden");
@@ -582,7 +531,7 @@ function showGameOverUI(hScore, gScore, hName, gName) {
   }
 }
 
-// INITIALIZE AUDIO
+// Audio
 initAudioControls();
 
 document
