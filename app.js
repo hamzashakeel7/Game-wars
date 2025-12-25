@@ -9,23 +9,11 @@ import {
   onDisconnect,
   remove,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
-// NEW: Import Confetti Library
 import confetti from "https://cdn.skypack.dev/canvas-confetti";
 
-// 2. CONFIGURATION
-const firebaseConfig = {
-  apiKey: "AIzaSyBgOFZLR2uuuAkvNC4oR0b0nLHvKr1sOe0",
-  authDomain: "game-wars.firebaseapp.com",
-
-  // ⚠️ IMPORTANT: REPLACE THIS URL WITH YOUR ACTUAL DATABASE URL ⚠️
-  databaseURL: "https://game-wars-default-rtdb.firebaseio.com",
-
-  projectId: "game-wars",
-  storageBucket: "game-wars.firebasestorage.app",
-  messagingSenderId: "783310585542",
-  appId: "1:783310585542:web:a2fd19275569784d1f61c7",
-  measurementId: "G-178CLNJ55W",
-};
+// 2. CONFIGURATION IMPORT
+// We import the config from the separate file instead of hardcoding it here.
+import { firebaseConfig } from "./config.js";
 
 // 3. Initialize
 const app = initializeApp(firebaseConfig);
@@ -33,6 +21,7 @@ const db = getDatabase(app);
 
 console.log("🔥 Firebase Initialized");
 
+// --- VARIABLES ---
 let myRole = null;
 let currentGameRef = null;
 let myPlayerName = "";
@@ -40,10 +29,47 @@ let currentGameCode = "";
 let isRoundActive = false;
 const WINNING_SCORE = 5;
 
+// --- AUDIO SYSTEM (ADVANCED) ---
+
+// 1. Background Music
 const bgMusic = new Audio("music.mp3");
 bgMusic.loop = true;
 bgMusic.volume = 0.4;
 let isMusicPlaying = false;
+
+// 2. Salam Sound (Played Once)
+const salamSound = new Audio("salam.mp3");
+let hasSalamPlayed = false;
+
+// 3. Click Sounds (Array of 5)
+const clickSounds = [
+  new Audio("click1.mp3"),
+  new Audio("click2.mp3"),
+  new Audio("click3.mp3"),
+  new Audio("click4.mp3"),
+  new Audio("click5.mp3"),
+];
+
+// Helper: Play Salam Once
+function playSalam() {
+  if (!hasSalamPlayed) {
+    salamSound
+      .play()
+      .catch((e) => console.log("Salam blocked until interaction"));
+    hasSalamPlayed = true;
+  }
+}
+
+// Helper: Play Random Click
+function playRandomClick() {
+  // Pick a random number between 0 and 4
+  const index = Math.floor(Math.random() * clickSounds.length);
+
+  // Clone the node so we can play overlapping sounds (rapid fire)
+  const sound = clickSounds[index].cloneNode();
+  sound.volume = 1.0;
+  sound.play().catch((e) => console.log("Click sound error:", e));
+}
 
 // --- DOM ELEMENTS ---
 const dashboard = document.getElementById("dashboard");
@@ -53,8 +79,6 @@ const modeCreate = document.getElementById("mode-create");
 const modeJoin = document.getElementById("mode-join");
 const playerNameInput = document.getElementById("player-name");
 const gameCodeInput = document.getElementById("game-code-input");
-
-// Game Screen Elements
 const player1NameEl = document.getElementById("player1-name");
 const player2NameEl = document.getElementById("player2-name");
 const player1ScoreEl = document.getElementById("player1-score");
@@ -67,6 +91,7 @@ const roundIndicator = document.getElementById("round-indicator");
 const roundText = document.getElementById("round-text");
 const displayGameCode = document.getElementById("display-game-code");
 
+// --- HELPER FUNCTIONS ---
 function generateGameCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -76,11 +101,9 @@ function generateGameCode() {
   return code;
 }
 
-// Helper function
 function showToast(title, msg) {
   const container = document.getElementById("toast-container");
   if (!container) return;
-
   const toast = document.createElement("div");
   toast.className = "toast";
   toast.innerHTML = `<div class="toast-title">${title}</div><div class="toast-description">${msg}</div>`;
@@ -88,14 +111,11 @@ function showToast(title, msg) {
   setTimeout(() => toast.remove(), 3000);
 }
 
-// music function
+// --- MUSIC CONTROLS ---
 function initAudioControls() {
-  // Create Mute Button dynamically
   const muteBtn = document.createElement("button");
   muteBtn.id = "btn-mute";
-  muteBtn.innerHTML = "🔊"; // Speaker Icon
-
-  // Style it to float top-right
+  muteBtn.innerHTML = "🔊";
   Object.assign(muteBtn.style, {
     position: "fixed",
     top: "20px",
@@ -115,15 +135,14 @@ function initAudioControls() {
 
   const tryToPlay = () => {
     if (isMusicPlaying) return;
-
     bgMusic
       .play()
       .then(() => {
         isMusicPlaying = true;
         muteBtn.innerHTML = "🔊";
         muteBtn.style.borderColor = "#00f3ff";
-        console.log("Audio Unlocked & Playing!");
 
+        // Remove listeners
         document.removeEventListener("click", tryToPlay);
         document.removeEventListener("touchstart", tryToPlay);
         document.removeEventListener("keydown", tryToPlay);
@@ -142,7 +161,6 @@ function initAudioControls() {
       isMusicPlaying = false;
       muteBtn.innerHTML = "🔇";
       muteBtn.style.borderColor = "#ff0055";
-      muteBtn.style.boxShadow = "0 0 10px #ff0055";
     } else {
       tryToPlay();
     }
@@ -150,6 +168,8 @@ function initAudioControls() {
 
   document.body.appendChild(muteBtn);
 }
+
+// --- UI BUTTON HANDLING ---
 
 playerNameInput.addEventListener("input", () => {
   const hasName = playerNameInput.value.trim().length > 0;
@@ -163,7 +183,9 @@ gameCodeInput.addEventListener("input", () => {
     gameCodeInput.value.trim().length < 4;
 });
 
+// NAVIGATION + SALAM TRIGGER
 document.getElementById("btn-create").addEventListener("click", () => {
+  playSalam(); // <--- PLAY SALAM HERE
   const name = playerNameInput.value.trim();
   if (name) {
     document.getElementById("create-player-name").innerText = name;
@@ -173,6 +195,7 @@ document.getElementById("btn-create").addEventListener("click", () => {
 });
 
 document.getElementById("btn-join").addEventListener("click", () => {
+  playSalam(); // <--- PLAY SALAM HERE
   const name = playerNameInput.value.trim();
   if (name) {
     document.getElementById("join-player-name").innerText = name;
@@ -191,13 +214,15 @@ document.getElementById("btn-join-back").addEventListener("click", () => {
   modeSelect.classList.remove("hidden");
 });
 
-// Copy Code Button
 document.getElementById("btn-copy").addEventListener("click", () => {
   navigator.clipboard.writeText(currentGameCode).then(() => {
     showToast("Copied!", "Code copied to clipboard.");
   });
 });
 
+// --- CORE LOGIC ---
+
+// 1. HOST CREATES GAME
 document.getElementById("btn-start-game").addEventListener("click", () => {
   myPlayerName = playerNameInput.value.trim();
   if (!myPlayerName) return alert("Enter name!");
@@ -226,14 +251,13 @@ document.getElementById("btn-start-game").addEventListener("click", () => {
     })
     .catch((err) => {
       console.error(err);
-      alert(
-        "❌ DATABASE CONNECTION FAILED!\n\nPlease check your 'databaseURL' in app.js.\nIt must match the URL in your Firebase Console -> Realtime Database."
-      );
+      alert("Database Connection Error!");
       btn.innerText = "Start Game";
       btn.disabled = false;
     });
 });
 
+// 2. GUEST JOINS GAME
 document.getElementById("btn-join-game").addEventListener("click", () => {
   myPlayerName = playerNameInput.value.trim();
   const code = gameCodeInput.value.trim().toUpperCase();
@@ -255,7 +279,7 @@ document.getElementById("btn-join-game").addEventListener("click", () => {
       const data = snapshot.val();
 
       if (!data) {
-        alert("Game not found! Check the code.");
+        alert("Game not found!");
         btn.innerText = "Join Game";
         btn.disabled = false;
         return;
@@ -270,16 +294,14 @@ document.getElementById("btn-join-game").addEventListener("click", () => {
           "guest/score": 0,
           gameState: "ready",
         });
-
         onDisconnect(ref(db, `games/${code}/guest`)).update({
           name: "",
           score: 0,
         });
-
         enterLobbyUI(code);
         listenToGame(code);
       } else {
-        alert("Game is full or already started!");
+        alert("Game full!");
         btn.innerText = "Join Game";
         btn.disabled = false;
       }
@@ -288,6 +310,7 @@ document.getElementById("btn-join-game").addEventListener("click", () => {
   );
 });
 
+// 3. REALTIME LISTENER
 function listenToGame(code) {
   onValue(ref(db, `games/${code}`), (snapshot) => {
     const data = snapshot.val();
@@ -301,7 +324,6 @@ function listenToGame(code) {
     player1NameEl.innerText = data.host.name;
     player1ScoreEl.innerText = data.host.score;
 
-    // Check if guest exists
     if (data.guest && data.guest.name) {
       player2NameEl.innerText = data.guest.name;
       player2ScoreEl.innerText = data.guest.score;
@@ -317,7 +339,6 @@ function listenToGame(code) {
         .classList.add("disconnected");
     }
 
-    // B. Handle Game States
     if (data.gameState === "waiting") {
       waitingMessage.classList.remove("hidden");
       btnStart.classList.add("hidden");
@@ -368,16 +389,15 @@ function listenToGame(code) {
   });
 }
 
+// 4. GAME LOOP LOGIC
 btnStart.addEventListener("click", () => {
   if (myRole === "host") {
     btnStart.classList.add("hidden");
-
     update(currentGameRef, {
       gameState: "playing",
       activeCell: -1,
       round: 1,
     });
-
     startCountdownAndRun();
   }
 });
@@ -404,7 +424,6 @@ function startCountdownAndRun() {
 
 function runHostGameLoop() {
   if (myRole !== "host") return;
-
   const delay = Math.random() * 2000 + 1000;
 
   setTimeout(() => {
@@ -429,6 +448,7 @@ function runHostGameLoop() {
   }, delay);
 }
 
+// CLICK HANDLER + CLICK SFX
 function handleCellClick(index) {
   if (!currentGameRef) return;
 
@@ -437,8 +457,13 @@ function handleCellClick(index) {
     (snapshot) => {
       const data = snapshot.val();
       if (data && data.gameState === "playing" && data.activeCell === index) {
+        // 1. PLAY RANDOM SOUND
+        playRandomClick(); // <--- TRIGGER SFX HERE
+
+        // 2. Reset Active Cell
         update(currentGameRef, { activeCell: -1 });
 
+        // 3. Update Score
         const updates = {};
         if (myRole === "host") {
           updates["host/score"] = data.host.score + 1;
@@ -446,7 +471,6 @@ function handleCellClick(index) {
           updates["guest/score"] = data.guest.score + 1;
         }
         update(currentGameRef, updates);
-
         showToast("Point!", "Fast reflexes!");
       }
     },
@@ -454,12 +478,12 @@ function handleCellClick(index) {
   );
 }
 
+// --- VISUAL UI FUNCTIONS ---
 function enterLobbyUI(code) {
   dashboard.classList.add("hidden");
   gameScreen.classList.remove("hidden");
   displayGameCode.innerText = code;
 
-  // Build Grid
   gameGrid.innerHTML = "";
   for (let i = 0; i < 9; i++) {
     let btn = document.createElement("button");
@@ -494,7 +518,7 @@ function showGameOverUI(hScore, gScore, hName, gName) {
   document.getElementById("winner-name").innerText = `${winner} WINS!`;
   document.getElementById("final-score").innerText = `${hScore} - ${gScore}`;
 
-  // NEW: TRIGGER CONFETTI BLAST!
+  // Confetti Blast
   const colors = isHostWin ? ["#00f3ff", "#ffffff"] : ["#ff0055", "#ffffff"];
   const duration = 3000;
   const end = Date.now() + duration;
@@ -531,7 +555,6 @@ function showGameOverUI(hScore, gScore, hName, gName) {
   }
 }
 
-// Audio
 initAudioControls();
 
 document
