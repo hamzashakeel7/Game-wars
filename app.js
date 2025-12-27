@@ -11,17 +11,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 import confetti from "https://cdn.skypack.dev/canvas-confetti";
 
-// 2. CONFIGURATION IMPORT
-// We import the config from the separate file instead of hardcoding it here.
 import { firebaseConfig } from "./config.js";
 
-// 3. Initialize
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-console.log("🔥 Firebase Initialized");
+console.log("firebase working");
 
-// --- VARIABLES ---
 let myRole = null;
 let currentGameRef = null;
 let myPlayerName = "";
@@ -29,19 +25,14 @@ let currentGameCode = "";
 let isRoundActive = false;
 const WINNING_SCORE = 5;
 
-// --- AUDIO SYSTEM (ADVANCED) ---
-
-// 1. Background Music
 const bgMusic = new Audio("music.mp3");
 bgMusic.loop = true;
-bgMusic.volume = 0.4;
+bgMusic.volume = 0.3;
 let isMusicPlaying = false;
 
-// 2. Salam Sound (Played Once)
 const salamSound = new Audio("salam.mp3");
 let hasSalamPlayed = false;
 
-// 3. Click Sounds (Array of 5)
 const clickSounds = [
   new Audio("click1.mp3"),
   new Audio("click2.mp3"),
@@ -50,7 +41,7 @@ const clickSounds = [
   new Audio("click5.mp3"),
 ];
 
-// Helper: Play Salam Once
+// Play Salam sound Once
 function playSalam() {
   if (!hasSalamPlayed) {
     salamSound
@@ -60,18 +51,14 @@ function playSalam() {
   }
 }
 
-// Helper: Play Random Click
 function playRandomClick() {
-  // Pick a random number between 0 and 4
   const index = Math.floor(Math.random() * clickSounds.length);
 
-  // Clone the node so we can play overlapping sounds (rapid fire)
   const sound = clickSounds[index].cloneNode();
   sound.volume = 1.0;
   sound.play().catch((e) => console.log("Click sound error:", e));
 }
 
-// --- DOM ELEMENTS ---
 const dashboard = document.getElementById("dashboard");
 const gameScreen = document.getElementById("game-screen");
 const modeSelect = document.getElementById("mode-select");
@@ -142,7 +129,6 @@ function initAudioControls() {
         muteBtn.innerHTML = "🔊";
         muteBtn.style.borderColor = "#00f3ff";
 
-        // Remove listeners
         document.removeEventListener("click", tryToPlay);
         document.removeEventListener("touchstart", tryToPlay);
         document.removeEventListener("keydown", tryToPlay);
@@ -169,7 +155,7 @@ function initAudioControls() {
   document.body.appendChild(muteBtn);
 }
 
-// --- UI BUTTON HANDLING ---
+// --- BUTTON HANDLING ---
 
 playerNameInput.addEventListener("input", () => {
   const hasName = playerNameInput.value.trim().length > 0;
@@ -183,9 +169,8 @@ gameCodeInput.addEventListener("input", () => {
     gameCodeInput.value.trim().length < 4;
 });
 
-// NAVIGATION + SALAM TRIGGER
 document.getElementById("btn-create").addEventListener("click", () => {
-  playSalam(); // <--- PLAY SALAM HERE
+  playSalam(); // salam sound
   const name = playerNameInput.value.trim();
   if (name) {
     document.getElementById("create-player-name").innerText = name;
@@ -195,7 +180,7 @@ document.getElementById("btn-create").addEventListener("click", () => {
 });
 
 document.getElementById("btn-join").addEventListener("click", () => {
-  playSalam(); // <--- PLAY SALAM HERE
+  playSalam();
   const name = playerNameInput.value.trim();
   if (name) {
     document.getElementById("join-player-name").innerText = name;
@@ -220,9 +205,7 @@ document.getElementById("btn-copy").addEventListener("click", () => {
   });
 });
 
-// --- CORE LOGIC ---
-
-// 1. HOST CREATES GAME
+// -----Main logic----
 document.getElementById("btn-start-game").addEventListener("click", () => {
   myPlayerName = playerNameInput.value.trim();
   if (!myPlayerName) return alert("Enter name!");
@@ -310,7 +293,7 @@ document.getElementById("btn-join-game").addEventListener("click", () => {
   );
 });
 
-// 3. REALTIME LISTENER
+// 3. realtime firebase listener
 function listenToGame(code) {
   onValue(ref(db, `games/${code}`), (snapshot) => {
     const data = snapshot.val();
@@ -389,7 +372,6 @@ function listenToGame(code) {
   });
 }
 
-// 4. GAME LOOP LOGIC
 btnStart.addEventListener("click", () => {
   if (myRole === "host") {
     btnStart.classList.add("hidden");
@@ -448,7 +430,6 @@ function runHostGameLoop() {
   }, delay);
 }
 
-// CLICK HANDLER + CLICK SFX
 function handleCellClick(index) {
   if (!currentGameRef) return;
 
@@ -457,13 +438,10 @@ function handleCellClick(index) {
     (snapshot) => {
       const data = snapshot.val();
       if (data && data.gameState === "playing" && data.activeCell === index) {
-        // 1. PLAY RANDOM SOUND
-        playRandomClick(); // <--- TRIGGER SFX HERE
+        playRandomClick();
 
-        // 2. Reset Active Cell
         update(currentGameRef, { activeCell: -1 });
 
-        // 3. Update Score
         const updates = {};
         if (myRole === "host") {
           updates["host/score"] = data.host.score + 1;
@@ -478,7 +456,6 @@ function handleCellClick(index) {
   );
 }
 
-// --- VISUAL UI FUNCTIONS ---
 function enterLobbyUI(code) {
   dashboard.classList.add("hidden");
   gameScreen.classList.remove("hidden");
