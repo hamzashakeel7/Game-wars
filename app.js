@@ -25,6 +25,7 @@ let currentGameCode = "";
 let isRoundActive = false;
 const WINNING_SCORE = 5;
 
+// --- AUDIO SYSTEM ---
 const bgMusic = new Audio("music.mp3");
 bgMusic.loop = true;
 bgMusic.volume = 0.3;
@@ -53,7 +54,6 @@ function playSalam() {
 
 function playRandomClick() {
   const index = Math.floor(Math.random() * clickSounds.length);
-
   const sound = clickSounds[index].cloneNode();
   sound.volume = 1.0;
   sound.play().catch((e) => console.log("Click sound error:", e));
@@ -78,7 +78,6 @@ const roundIndicator = document.getElementById("round-indicator");
 const roundText = document.getElementById("round-text");
 const displayGameCode = document.getElementById("display-game-code");
 
-// --- HELPER FUNCTIONS ---
 function generateGameCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -155,8 +154,6 @@ function initAudioControls() {
   document.body.appendChild(muteBtn);
 }
 
-// --- BUTTON HANDLING ---
-
 playerNameInput.addEventListener("input", () => {
   const hasName = playerNameInput.value.trim().length > 0;
   document.getElementById("btn-create").disabled = !hasName;
@@ -170,7 +167,7 @@ gameCodeInput.addEventListener("input", () => {
 });
 
 document.getElementById("btn-create").addEventListener("click", () => {
-  playSalam(); // salam sound
+  playSalam();
   const name = playerNameInput.value.trim();
   if (name) {
     document.getElementById("create-player-name").innerText = name;
@@ -205,7 +202,7 @@ document.getElementById("btn-copy").addEventListener("click", () => {
   });
 });
 
-// -----Main logic----
+// ----- HOST CREATES GAME ----
 document.getElementById("btn-start-game").addEventListener("click", () => {
   myPlayerName = playerNameInput.value.trim();
   if (!myPlayerName) return alert("Enter name!");
@@ -240,7 +237,7 @@ document.getElementById("btn-start-game").addEventListener("click", () => {
     });
 });
 
-// 2. GUEST JOINS GAME
+// ----- GUEST JOINS GAME ----
 document.getElementById("btn-join-game").addEventListener("click", () => {
   myPlayerName = playerNameInput.value.trim();
   const code = gameCodeInput.value.trim().toUpperCase();
@@ -293,7 +290,7 @@ document.getElementById("btn-join-game").addEventListener("click", () => {
   );
 });
 
-// 3. realtime firebase listener
+// ----- REALTIME LISTENER ----
 function listenToGame(code) {
   onValue(ref(db, `games/${code}`), (snapshot) => {
     const data = snapshot.val();
@@ -322,13 +319,16 @@ function listenToGame(code) {
         .classList.add("disconnected");
     }
 
+    // STATE MANAGEMENT
     if (data.gameState === "waiting") {
       waitingMessage.classList.remove("hidden");
       btnStart.classList.add("hidden");
       roundIndicator.classList.add("hidden");
+      gameOver.classList.add("hidden");
     } else if (data.gameState === "ready") {
       waitingMessage.classList.add("hidden");
       roundIndicator.classList.remove("hidden");
+      gameOver.classList.add("hidden");
       roundText.innerText = "READY TO START";
       roundText.classList.remove("active");
 
@@ -343,6 +343,7 @@ function listenToGame(code) {
       waitingMessage.classList.add("hidden");
       btnStart.classList.add("hidden");
       roundIndicator.classList.remove("hidden");
+      gameOver.classList.add("hidden");
 
       if (data.activeCell === -1) {
         roundText.innerText = "Get Ready...";
@@ -430,6 +431,7 @@ function runHostGameLoop() {
   }, delay);
 }
 
+// ----- CLICK HANDLER ----
 function handleCellClick(index) {
   if (!currentGameRef) return;
 
@@ -456,6 +458,7 @@ function handleCellClick(index) {
   );
 }
 
+// ----- UI ----
 function enterLobbyUI(code) {
   dashboard.classList.add("hidden");
   gameScreen.classList.remove("hidden");
@@ -489,14 +492,34 @@ function renderGrid(activeIdx) {
 
 function showGameOverUI(hScore, gScore, hName, gName) {
   gameOver.classList.remove("hidden");
-  const winner = hScore > gScore ? hName : gName;
-  const isHostWin = hScore > gScore;
 
-  document.getElementById("winner-name").innerText = `${winner} WINS!`;
+  // TIE LOGIC
+  if (hScore === gScore) {
+    document.getElementById("winner-name").innerText = "IT'S A DRAW!";
+    document.getElementById("winner-name").className =
+      "winner-text neon-text-cyan";
+    gameOver.className = "neon-card neon-card-cyan game-over-card";
+  } else {
+    const winner = hScore > gScore ? hName : gName;
+    const isHostWin = hScore > gScore;
+
+    document.getElementById("winner-name").innerText = `${winner} WINS!`;
+
+    if (isHostWin) {
+      gameOver.className = "neon-card neon-card-cyan game-over-card";
+      document.getElementById("winner-name").className =
+        "winner-text neon-text-cyan";
+    } else {
+      gameOver.className = "neon-card neon-card-magenta game-over-card";
+      document.getElementById("winner-name").className =
+        "winner-text neon-text-magenta";
+    }
+  }
+
   document.getElementById("final-score").innerText = `${hScore} - ${gScore}`;
 
-  // Confetti Blast
-  const colors = isHostWin ? ["#00f3ff", "#ffffff"] : ["#ff0055", "#ffffff"];
+  // Confetti
+  const colors = ["#00f3ff", "#ff0055", "#ffffff"];
   const duration = 3000;
   const end = Date.now() + duration;
 
@@ -520,23 +543,37 @@ function showGameOverUI(hScore, gScore, hName, gName) {
       requestAnimationFrame(frame);
     }
   })();
-
-  if (isHostWin) {
-    gameOver.className = "neon-card neon-card-cyan game-over-card";
-    document.getElementById("winner-name").className =
-      "winner-text neon-text-cyan";
-  } else {
-    gameOver.className = "neon-card neon-card-magenta game-over-card";
-    document.getElementById("winner-name").className =
-      "winner-text neon-text-magenta";
-  }
 }
 
-initAudioControls();
+// ----- NEW: PLAY AGAIN LOGIC ----
+document.getElementById("btn-play-again").addEventListener("click", () => {
+  if (myRole === "host") {
+    update(currentGameRef, {
+      gameState: "ready",
+      activeCell: -1,
+      "host/score": 0,
+      "guest/score": 0,
+      round: 0,
+    });
+  } else {
+    showToast("Waiting...", "Host must start the rematch.");
+  }
+});
 
-document
-  .getElementById("btn-play-again")
-  .addEventListener("click", () => location.reload());
+const closeBtn = document.createElement("button");
+closeBtn.innerText = "Exit Game";
+closeBtn.className = "btn btn-outline mt-2";
+closeBtn.style.width = "100%";
+closeBtn.onclick = () => location.reload();
+
+if (!document.getElementById("btn-exit-game")) {
+  closeBtn.id = "btn-exit-game";
+  document.querySelector("#game-over").appendChild(closeBtn);
+}
+
+// Leave button
 document
   .getElementById("btn-leave")
   .addEventListener("click", () => location.reload());
+
+initAudioControls();
