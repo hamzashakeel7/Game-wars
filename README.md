@@ -86,9 +86,6 @@ Sufiyan Zakaria 2580299 BSSE-1E - Frontend Structure & Testing
 
 Ali Mustafa 2580267 BSSE-1E - Frontend Structure & Testing
 
-
-[Member 4 Name] - Documentation & Presentation
-
 Built for ITC Semester Project | 2025
 
 https://www.webwizdurrani.com/
